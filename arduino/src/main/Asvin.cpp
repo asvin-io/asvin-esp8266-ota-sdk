@@ -125,6 +125,7 @@ String Asvin::CheckRolloutSuccess(const String mac, const String currentFwVersio
   DynamicJsonDocument doc(256);
   doc["mac"] = mac;
   doc["firmware_version"] = currentFwVersion;
+  doc["rollout_id"] = rollout_id;
   String payload;
   serializeJson(doc, payload);
   char buff[payload.length() + 1];
