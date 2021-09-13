@@ -9,30 +9,30 @@
  */
 
 #include <Arduino.h>
-#include <ESP8266WiFi.h>
-#include <Stream.h>
-#include <Wire.h>
-#include <ArduinoJson.h>
-#include "Asvin.h"
- // WifiManager Dependancies
-#include <DNSServer.h>
-#include <ESP8266WebServer.h>
 #include <WiFiManager.h>
 #include <NTPClient.h>
 #include <Crypto.h>
+#include <ArduinoJson.h>
+#include "Asvin.h"
 
-// UTC offset
+#define DEBUG_MY_UPDATE
+
+#ifndef DEBUG_MY_UPDATE
+#define DEBUG_ASVIN_UPDATE(...) Serial.printf( __VA_ARGS__ )
+#endif
+
+ // UTC offset
 const long utcOffsetInSeconds = 0;
 WiFiUDP ntpUDP;
 NTPClient timeClient(ntpUDP, "pool.ntp.org", utcOffsetInSeconds);
 
 
 // Get credentials from credentials.h
-String customer_key = "add-your-customer_key";
-String device_key = "add-your-device-key";
+String customer_key = "your-customer_key";
+String device_key = "your-device_key";
 
-String key = "3";
-String firmware_version = "1  .0.0";
+
+String firmware_version = "1.0.0";
 bool device_registered = false;
 
 
@@ -72,7 +72,7 @@ void loop() {
 
   */
   if (WiFi.status() == WL_CONNECTED) { //Check WiFi connection status
-    Serial.println("Wifi Connected !");
+    DEBUG_MY_UPDATE("Wifi Connected !");
     String mac = WiFi.macAddress();
     //Serial.println(" Getting Time from NTP server ");
     timeClient.update();
@@ -153,9 +153,9 @@ void loop() {
           String rolloutID = doc["rollout_id"];
           if (rolloutID == "null") {
             Serial.println("No Rollout available");
+            delay(1000 * 3);
             return;
           }
-
 
           // Get CID from BlockChain server
           Serial.println("--Get Firmware Info from Blockchain");
@@ -180,7 +180,7 @@ void loop() {
             }
 
             // -Download Firmware from IPFS server
-            Serial.println("--Download Firmware from IPFS");
+            Serial.println("--Download Firmware from IPFS and Install");
             t_httpUpdate_return ret = asvin.DownloadFirmware(authToken, cid);
             switch (ret)
             {
@@ -191,27 +191,44 @@ void loop() {
               Serial.println("HTTP_UPDATE_NO_UPDATES");
               break;
             case HTTP_UPDATE_OK:
-              Serial.println("HTTP_UPDATE_OK");
+              Serial.println("Update successfull");
+
+              // check if rollout successfull 
+              //Serial.println("--Update Rollout");
+              String resultCheckout = asvin.CheckRolloutSuccess(mac, firmware_version, authToken, rolloutID, httpCode);
+              char buff[resultCheckout.length() + 1];
+              resultCheckout.toCharArray(buff, resultCheckout.length() + 1);
+              //Serial.println(buff);
+              if (httpCode == 200) {
+                //Serial.println("Update Rollout : OK");
+                Serial.println("--Restart Device and Apply Update : OK");
+                ESP.restart();
+              }
+              else {
+                Serial.println("Rollout Update Error!!");
+              }
               break;
             }
-            if (httpCode == 200) {
-              Serial.println("Firmware updated");
-            }
-            // if (httpCode == 200)
-            // {
-            //   // check if rollout successfull 
-            //   Serial.println("http 200");
-            //   String resultCheckout = asvin.CheckRolloutSuccess(mac, firmware_version, authToken, rolloutID, httpCode);
-            //   char buff[resultCheckout.length() + 1];
-            //   resultCheckout.toCharArray(buff, resultCheckout.length() + 1);
-            //   Serial.println(buff);
-            // }
+          }
+          else {
+            DEBUG_MY_UPDATE("IPFS Error!!");
           }
 
-          // -Check if Rollout was sucessful 
+        }
+        else {
+          DEBUG_MY_UPDATE("Next Rollout Error!!");
         }
       }
+      else {
+        DEBUG_MY_UPDATE("Device Registration Error!!");
+      }
     }
-    delay(1000 * 20);
+    else {
+      DEBUG_MY_UPDATE("OAuth Error!!");
+    }
   }
+  else {
+    DEBUG_MY_UPDATE("Problem with WiFi!!");
+  }
+  delay(1000 * 3);
 }
