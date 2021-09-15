@@ -1,5 +1,5 @@
 /*
- * Esp8266HttpOta
+ * Asvin Esp8266 HTTP OTA Demo
  *
  * The sketch was developed for a prototype consist of Nodemcu ESP8266 board
  * . The board connects to asvin platform and perform OTA
@@ -18,7 +18,7 @@
 #define DEBUG_MY_UPDATE
 
 #ifndef DEBUG_MY_UPDATE
-#define DEBUG_ASVIN_UPDATE(...) Serial.printf( __VA_ARGS__ )
+#define DEBUG_MY_UPDATE(...) Serial.printf( __VA_ARGS__ )
 #endif
 
  // UTC offset
