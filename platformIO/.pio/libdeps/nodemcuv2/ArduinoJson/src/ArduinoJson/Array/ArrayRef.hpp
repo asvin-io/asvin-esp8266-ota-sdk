@@ -1,12 +1,12 @@
 // ArduinoJson - arduinojson.org
-// Copyright Benoit Blanchon 2014-2021
+// Copyright Benoit Blanchon 2014-2019
 // MIT License
 
 #pragma once
 
-#include <ArduinoJson/Array/ArrayFunctions.hpp>
-#include <ArduinoJson/Array/ArrayIterator.hpp>
-#include <ArduinoJson/Variant/VariantData.hpp>
+#include "../Variant/VariantData.hpp"
+#include "ArrayFunctions.hpp"
+#include "ArrayIterator.hpp"
 
 // Returns the size (in bytes) of an array with n elements.
 // Can be very handy to determine the size of a StaticMemoryPool.
@@ -27,17 +27,13 @@ class ArrayRefBase {
     return VariantConstRef(reinterpret_cast<const VariantData*>(data));
   }
 
-  template <typename TVisitor>
-  FORCE_INLINE typename TVisitor::result_type accept(TVisitor& visitor) const {
-    return arrayAccept(_data, visitor);
+  template <typename Visitor>
+  FORCE_INLINE void accept(Visitor& visitor) const {
+    arrayAccept(_data, visitor);
   }
 
   FORCE_INLINE bool isNull() const {
     return _data == 0;
-  }
-
-  FORCE_INLINE operator bool() const {
-    return _data != 0;
   }
 
   FORCE_INLINE size_t memoryUsage() const {
@@ -66,8 +62,7 @@ class ArrayConstRef : public ArrayRefBase<const CollectionData>,
   typedef ArrayConstRefIterator iterator;
 
   FORCE_INLINE iterator begin() const {
-    if (!_data)
-      return iterator();
+    if (!_data) return iterator();
     return iterator(_data->head());
   }
 
@@ -87,7 +82,7 @@ class ArrayConstRef : public ArrayRefBase<const CollectionData>,
   }
 
   FORCE_INLINE VariantConstRef getElement(size_t index) const {
-    return VariantConstRef(_data ? _data->getElement(index) : 0);
+    return VariantConstRef(_data ? _data->get(index) : 0);
   }
 };
 
@@ -117,8 +112,7 @@ class ArrayRef : public ArrayRefBase<CollectionData>,
   }
 
   FORCE_INLINE iterator begin() const {
-    if (!_data)
-      return iterator();
+    if (!_data) return iterator();
     return iterator(_pool, _data->head());
   }
 
@@ -128,8 +122,7 @@ class ArrayRef : public ArrayRefBase<CollectionData>,
 
   // Copy a ArrayRef
   FORCE_INLINE bool set(ArrayConstRef src) const {
-    if (!_data || !src._data)
-      return false;
+    if (!_data || !src._data) return false;
     return _data->copyFrom(*src._data, _pool);
   }
 
@@ -137,28 +130,21 @@ class ArrayRef : public ArrayRefBase<CollectionData>,
     return arrayEquals(_data, rhs._data);
   }
 
-  // Internal use
-  FORCE_INLINE VariantRef getOrAddElement(size_t index) const {
-    return VariantRef(_pool, _data ? _data->getOrAddElement(index, _pool) : 0);
-  }
-
   // Gets the value at the specified index.
   FORCE_INLINE VariantRef getElement(size_t index) const {
-    return VariantRef(_pool, _data ? _data->getElement(index) : 0);
+    return VariantRef(_pool, _data ? _data->get(index) : 0);
   }
 
   // Removes element at specified position.
   FORCE_INLINE void remove(iterator it) const {
-    if (!_data)
-      return;
-    _data->removeSlot(it.internal());
+    if (!_data) return;
+    _data->remove(it.internal());
   }
 
   // Removes element at specified index.
   FORCE_INLINE void remove(size_t index) const {
-    if (!_data)
-      return;
-    _data->removeElement(index);
+    if (!_data) return;
+    _data->remove(index);
   }
 
  private:

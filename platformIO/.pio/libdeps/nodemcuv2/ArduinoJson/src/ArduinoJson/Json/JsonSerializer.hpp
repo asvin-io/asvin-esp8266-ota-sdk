@@ -1,22 +1,22 @@
 // ArduinoJson - arduinojson.org
-// Copyright Benoit Blanchon 2014-2021
+// Copyright Benoit Blanchon 2014-2019
 // MIT License
 
 #pragma once
 
-#include <ArduinoJson/Json/TextFormatter.hpp>
-#include <ArduinoJson/Misc/Visitable.hpp>
-#include <ArduinoJson/Serialization/measure.hpp>
-#include <ArduinoJson/Serialization/serialize.hpp>
+#include "../Misc/Visitable.hpp"
+#include "../Serialization/measure.hpp"
+#include "../Serialization/serialize.hpp"
+#include "TextFormatter.hpp"
 
 namespace ARDUINOJSON_NAMESPACE {
 
 template <typename TWriter>
-class JsonSerializer : public Visitor<size_t> {
+class JsonSerializer {
  public:
-  JsonSerializer(TWriter writer) : _formatter(writer) {}
+  JsonSerializer(TWriter &writer) : _formatter(writer) {}
 
-  FORCE_INLINE size_t visitArray(const CollectionData &array) {
+  FORCE_INLINE void visitArray(const CollectionData &array) {
     write('[');
 
     VariantSlot *slot = array.head();
@@ -25,17 +25,15 @@ class JsonSerializer : public Visitor<size_t> {
       slot->data()->accept(*this);
 
       slot = slot->next();
-      if (slot == 0)
-        break;
+      if (slot == 0) break;
 
       write(',');
     }
 
     write(']');
-    return bytesWritten();
   }
 
-  size_t visitObject(const CollectionData &object) {
+  void visitObject(const CollectionData &object) {
     write('{');
 
     VariantSlot *slot = object.head();
@@ -46,56 +44,47 @@ class JsonSerializer : public Visitor<size_t> {
       slot->data()->accept(*this);
 
       slot = slot->next();
-      if (slot == 0)
-        break;
+      if (slot == 0) break;
 
       write(',');
     }
 
     write('}');
-    return bytesWritten();
   }
 
-  size_t visitFloat(Float value) {
+  void visitFloat(Float value) {
     _formatter.writeFloat(value);
-    return bytesWritten();
   }
 
-  size_t visitString(const char *value) {
+  void visitString(const char *value) {
     _formatter.writeString(value);
-    return bytesWritten();
   }
 
-  size_t visitRawJson(const char *data, size_t n) {
+  void visitRawJson(const char *data, size_t n) {
     _formatter.writeRaw(data, n);
-    return bytesWritten();
   }
 
-  size_t visitNegativeInteger(UInt value) {
+  void visitNegativeInteger(UInt value) {
     _formatter.writeNegativeInteger(value);
-    return bytesWritten();
   }
 
-  size_t visitPositiveInteger(UInt value) {
+  void visitPositiveInteger(UInt value) {
     _formatter.writePositiveInteger(value);
-    return bytesWritten();
   }
 
-  size_t visitBoolean(bool value) {
+  void visitBoolean(bool value) {
     _formatter.writeBoolean(value);
-    return bytesWritten();
   }
 
-  size_t visitNull() {
+  void visitNull() {
     _formatter.writeRaw("null");
-    return bytesWritten();
   }
 
- protected:
   size_t bytesWritten() const {
     return _formatter.bytesWritten();
   }
 
+ protected:
   void write(char c) {
     _formatter.writeRaw(c);
   }
@@ -114,7 +103,7 @@ size_t serializeJson(const TSource &source, TDestination &destination) {
 }
 
 template <typename TSource>
-size_t serializeJson(const TSource &source, void *buffer, size_t bufferSize) {
+size_t serializeJson(const TSource &source, char *buffer, size_t bufferSize) {
   return serialize<JsonSerializer>(source, buffer, bufferSize);
 }
 

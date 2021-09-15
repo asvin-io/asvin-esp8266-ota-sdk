@@ -1,34 +1,31 @@
 // ArduinoJson - arduinojson.org
-// Copyright Benoit Blanchon 2014-2021
+// Copyright Benoit Blanchon 2014-2019
 // MIT License
 
 #pragma once
 
-#include <ArduinoJson/MsgPack/endianess.hpp>
-#include <ArduinoJson/Polyfills/assert.hpp>
-#include <ArduinoJson/Polyfills/type_traits.hpp>
-#include <ArduinoJson/Serialization/CountingDecorator.hpp>
-#include <ArduinoJson/Serialization/measure.hpp>
-#include <ArduinoJson/Serialization/serialize.hpp>
-#include <ArduinoJson/Variant/VariantData.hpp>
+#include "../Polyfills/type_traits.hpp"
+#include "../Serialization/measure.hpp"
+#include "../Serialization/serialize.hpp"
+#include "../Variant/VariantData.hpp"
+#include "endianess.hpp"
 
 namespace ARDUINOJSON_NAMESPACE {
 
 template <typename TWriter>
-class MsgPackSerializer : public Visitor<size_t> {
+class MsgPackSerializer {
  public:
-  MsgPackSerializer(TWriter writer) : _writer(writer) {}
+  MsgPackSerializer(TWriter& writer) : _writer(&writer), _bytesWritten(0) {}
 
   template <typename T>
-  typename enable_if<sizeof(T) == 4, size_t>::type visitFloat(T value32) {
+  typename enable_if<sizeof(T) == 4>::type visitFloat(T value32) {
     writeByte(0xCA);
     writeInteger(value32);
-    return bytesWritten();
   }
 
   template <typename T>
   ARDUINOJSON_NO_SANITIZE("float-cast-overflow")
-  typename enable_if<sizeof(T) == 8, size_t>::type visitFloat(T value64) {
+  typename enable_if<sizeof(T) == 8>::type visitFloat(T value64) {
     float value32 = float(value64);
     if (value32 == value64) {
       writeByte(0xCA);
@@ -37,10 +34,9 @@ class MsgPackSerializer : public Visitor<size_t> {
       writeByte(0xCB);
       writeInteger(value64);
     }
-    return bytesWritten();
   }
 
-  size_t visitArray(const CollectionData& array) {
+  void visitArray(const CollectionData& array) {
     size_t n = array.size();
     if (n < 0x10) {
       writeByte(uint8_t(0x90 + array.size()));
@@ -54,10 +50,9 @@ class MsgPackSerializer : public Visitor<size_t> {
     for (VariantSlot* slot = array.head(); slot; slot = slot->next()) {
       slot->data()->accept(*this);
     }
-    return bytesWritten();
   }
 
-  size_t visitObject(const CollectionData& object) {
+  void visitObject(const CollectionData& object) {
     size_t n = object.size();
     if (n < 0x10) {
       writeByte(uint8_t(0x80 + n));
@@ -72,11 +67,10 @@ class MsgPackSerializer : public Visitor<size_t> {
       visitString(slot->key());
       slot->data()->accept(*this);
     }
-    return bytesWritten();
   }
 
-  size_t visitString(const char* value) {
-    ARDUINOJSON_ASSERT(value != NULL);
+  void visitString(const char* value) {
+    if (!value) return writeByte(0xC0);  // nil
 
     size_t n = strlen(value);
 
@@ -93,15 +87,13 @@ class MsgPackSerializer : public Visitor<size_t> {
       writeInteger(uint32_t(n));
     }
     writeBytes(reinterpret_cast<const uint8_t*>(value), n);
-    return bytesWritten();
   }
 
-  size_t visitRawJson(const char* data, size_t size) {
+  void visitRawJson(const char* data, size_t size) {
     writeBytes(reinterpret_cast<const uint8_t*>(data), size);
-    return bytesWritten();
   }
 
-  size_t visitNegativeInteger(UInt value) {
+  void visitNegativeInteger(UInt value) {
     UInt negated = UInt(~value + 1);
     if (value <= 0x20) {
       writeInteger(int8_t(negated));
@@ -121,10 +113,9 @@ class MsgPackSerializer : public Visitor<size_t> {
       writeInteger(int64_t(negated));
     }
 #endif
-    return bytesWritten();
   }
 
-  size_t visitPositiveInteger(UInt value) {
+  void visitPositiveInteger(UInt value) {
     if (value <= 0x7F) {
       writeInteger(uint8_t(value));
     } else if (value <= 0xFF) {
@@ -133,13 +124,7 @@ class MsgPackSerializer : public Visitor<size_t> {
     } else if (value <= 0xFFFF) {
       writeByte(0xCD);
       writeInteger(uint16_t(value));
-    }
-#if ARDUINOJSON_USE_LONG_LONG
-    else if (value <= 0xFFFFFFFF)
-#else
-    else
-#endif
-    {
+    } else if (value <= 0xFFFFFFFF) {
       writeByte(0xCE);
       writeInteger(uint32_t(value));
     }
@@ -149,30 +134,27 @@ class MsgPackSerializer : public Visitor<size_t> {
       writeInteger(uint64_t(value));
     }
 #endif
-    return bytesWritten();
   }
 
-  size_t visitBoolean(bool value) {
+  void visitBoolean(bool value) {
     writeByte(value ? 0xC3 : 0xC2);
-    return bytesWritten();
   }
 
-  size_t visitNull() {
+  void visitNull() {
     writeByte(0xC0);
-    return bytesWritten();
+  }
+
+  size_t bytesWritten() const {
+    return _bytesWritten;
   }
 
  private:
-  size_t bytesWritten() const {
-    return _writer.count();
-  }
-
   void writeByte(uint8_t c) {
-    _writer.write(c);
+    _bytesWritten += _writer->write(c);
   }
 
   void writeBytes(const uint8_t* p, size_t n) {
-    _writer.write(p, n);
+    _bytesWritten += _writer->write(p, n);
   }
 
   template <typename T>
@@ -181,7 +163,8 @@ class MsgPackSerializer : public Visitor<size_t> {
     writeBytes(reinterpret_cast<uint8_t*>(&value), sizeof(value));
   }
 
-  CountingDecorator<TWriter> _writer;
+  TWriter* _writer;
+  size_t _bytesWritten;
 };
 
 template <typename TSource, typename TDestination>
@@ -189,8 +172,8 @@ inline size_t serializeMsgPack(const TSource& source, TDestination& output) {
   return serialize<MsgPackSerializer>(source, output);
 }
 
-template <typename TSource>
-inline size_t serializeMsgPack(const TSource& source, void* output,
+template <typename TSource, typename TDestination>
+inline size_t serializeMsgPack(const TSource& source, TDestination* output,
                                size_t size) {
   return serialize<MsgPackSerializer>(source, output, size);
 }

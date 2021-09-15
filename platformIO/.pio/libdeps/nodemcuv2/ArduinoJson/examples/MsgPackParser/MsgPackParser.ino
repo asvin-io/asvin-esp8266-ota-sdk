@@ -1,5 +1,5 @@
 // ArduinoJson - arduinojson.org
-// Copyright Benoit Blanchon 2014-2021
+// Copyright Benoit Blanchon 2014-2019
 // MIT License
 //
 // This example shows how to deserialize a MessagePack document with
@@ -50,7 +50,7 @@ void setup() {
   // Test if parsing succeeded.
   if (error) {
     Serial.print("deserializeMsgPack() failed: ");
-    Serial.println(error.f_str());
+    Serial.println(error.c_str());
     return;
   }
 

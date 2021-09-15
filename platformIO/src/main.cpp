@@ -1,40 +1,39 @@
 /*
  * Asvin Esp8266 HTTP OTA Demo
  *
- * The sketch is a demonstration for Asvin OTA using a  Nodemcu ESP8266 board.
- * The board connects to asvin platform and perform OTA 
- * firmware updates. 
- * 
- * @author Rohit Bohara, Apache-2.0 License
- * @version 1.0.3
+ * The sketch was developed for a prototype consist of Nodemcu ESP8266 board
+ * . The board connects to asvin platform and perform OTA
+ * firmware updates.
+ *
+ * Written by Rohit Bohara, Apache-2.0 License
  */
 
 #include <Arduino.h>
-#include <ESP8266WiFi.h>
-#include <Stream.h>
-#include <Wire.h>
-#include <ArduinoJson.h>
-#include "Asvin.h"
-// WifiManager Dependancies
-#include <DNSServer.h>
-#include <ESP8266WebServer.h>
 #include <WiFiManager.h>
 #include <NTPClient.h>
 #include <Crypto.h>
-#include <TypeConversion.h>
+#include <ArduinoJson.h>
+#include "Asvin.h"
 #include "credentials.h"
 
-// UTC offset
-const long UTC_OFFSET_IN_SECONDS = 0;
+ //#define DEBUG_MY_UPDATE
+
+#ifndef DEBUG_MY_UPDATE
+#define DEBUG_MY_UPDATE(...) Serial.printf( __VA_ARGS__ )
+#endif
+
+ // UTC offset
+const long utcOffsetInSeconds = 0;
 WiFiUDP ntpUDP;
-NTPClient timeClient(ntpUDP, "pool.ntp.org", UTC_OFFSET_IN_SECONDS);
+NTPClient timeClient(ntpUDP, "pool.ntp.org", utcOffsetInSeconds);
 
-// Get credentials from credentials.h
-String customerKey = CUSTOMER_KEY;
-String deviceKey = DEVICE_KEY;
+// Get credentials from asvin platform
+String customer_key = CUSTOMER_KEY;
+String device_key = DEVICE_KEY;
 
-String key = "3";
-String firmwareVersion = "1.0.0";
+
+String firmware_version = "1.0.0";
+bool device_registered = false;
 
 /*
 This sketch uses wifi manager to manage WiFi credentials
@@ -44,31 +43,37 @@ void setup()
 {
   Serial.begin(115200); //Serial connection
   delay(500);
+  Serial.print("Firmware version: ");
+  Serial.println(firmware_version);
   WiFiManager wifiManager;
   // Uncomment below code to reset onboard wifi credentials
   // wifiManager.resetSettings();
   wifiManager.autoConnect("AutoConnectAP");
   timeClient.begin();
+  pinMode(LED_BUILTIN, OUTPUT);
+  digitalWrite(LED_BUILTIN, LOW);   // turn the LED on (HIGH is the voltage level)
 }
 
-void loop()
-{
+void showDeserializeError(DeserializationError error) {
+  Serial.print(F("deserializeJson() failed: "));
+  Serial.println(error.c_str());
+}
+
+void loop() {
   /*
     -Connect to WiFi
       -Login To Auth Server
-        -Register Device 
+        -Register Device
           -CheckRollout
             -Get CID from BlockChain server
               -Download Firmware from IPFS server and update the ESP
-                -Check if Rollout was sucessful 
-    
-  */
-  
-  if (WiFi.status() == WL_CONNECTED)
-  { //Check WiFi connection status
-    Serial.println(" Wifi Connected !");
+                -Check if Rollout was sucessful
 
-    Serial.println(" Getting Time from NTP server ");
+  */
+  if (WiFi.status() == WL_CONNECTED) { //Check WiFi connection status
+    DEBUG_MY_UPDATE("Wifi Connected !");
+    String mac = WiFi.macAddress();
+    //Serial.println(" Getting Time from NTP server ");
     timeClient.update();
 
     using namespace experimental::crypto;
@@ -76,89 +81,112 @@ void loop()
     char payloadBuf[42];
     ltoa(timestr, payloadBuf, 10);
 
-    strcat(payloadBuf, deviceKey.c_str());
+    strcat(payloadBuf, device_key.c_str());
 
-    uint8_t derivedKey[customerKey.length()];
-    std::copy(customerKey.begin(), customerKey.end(), derivedKey);
+    uint8_t derivedKey[customer_key.length()];
+    std::copy(customer_key.begin(), customer_key.end(), derivedKey);
 
-    String deviceSignature = SHA256::hmac(payloadBuf, derivedKey, sizeof derivedKey, SHA256::NATURAL_LENGTH);
-    deviceSignature.toLowerCase();
-    // Serial.println(device_signature);
+    String device_signature = SHA256::hmac(payloadBuf, derivedKey, sizeof derivedKey, SHA256::NATURAL_LENGTH);
+    device_signature.toLowerCase();
+    Serial.print("dd: ");
+    Serial.println(device_signature);
+    Serial.println(timestr);
 
     delay(2000);
-    HTTPClient http;
-    String mac = WiFi.macAddress();
-    Asvin asvin;
-    int httpCode;
-    String resp = asvin.getFingerprints(httpCode);
-    
-    // ......Get OAuth Token..................
-    Serial.println("Get OAuth Token ");
 
-    String response = asvin.authLogin(deviceKey, deviceSignature, timestr, httpCode);
-    // Serial.println(" Parsing Auth Code ");
-    DynamicJsonDocument doc(1000);
-    DeserializationError error = deserializeJson(doc, response);
-    String authToken = doc["token"];
-    if (error)
-    {
-      Serial.print(F("deserializeJson() failed: "));
-      Serial.println(error.c_str());
+    int httpCode;
+    Asvin asvin;
+
+    if (!asvin.getFingerprints(httpCode)) {
+      Serial.println("Fingerprint error");
       return;
     }
-    Serial.println("Auth Token: ");
-    Serial.println(authToken);
 
-    // Register Device
+    // ......Get OAuth Token.................. 
+    Serial.println("--Get OAuth Token ");
+    String response = asvin.authLogin(device_key, device_signature, timestr, httpCode);
+    //Serial.println(" Parsing Auth Code ");
+    DynamicJsonDocument doc(1000);
+    DeserializationError error = deserializeJson(doc, response);
+    if (error)
+    {
+      showDeserializeError(error);
+      return;
+    }
+    if (httpCode == 200) {
+      Serial.println("OAuth Token: OK");
+      String authToken = doc["token"];
+      //Serial.println(authToken);
 
-    String result = asvin.registerDevice(mac, firmwareVersion, authToken, httpCode);
-    char buff[result.length() + 1];
-    result.toCharArray(buff, result.length() + 1);
-    Serial.print("Buffer --> ");
-    Serial.println(buff);
-    Serial.println(httpCode);
 
-    if (httpCode == 200){
-      Serial.println(" Device Registered: OK ");
+      // Register Device 
+      if (device_registered) {
+        httpCode = 200;
+      }
+      else {
+        //Serial.println("--Register Device");
+        String device_name = "esp-8266-demo";
+        String result = asvin.registerDevice(device_name, mac, firmware_version, authToken, httpCode);
+        char buff[result.length() + 1];
+        result.toCharArray(buff, result.length() + 1);
+        /*
+        Serial.print("Buffer --> ");
+        Serial.println(buff);
+        Serial.println(httpCode);*/
+      }
+      if (httpCode == 200) {
+        device_registered = true;
+        //Serial.println("Device Registered: OK ");
 
-      //  -CheckRollout
-      String resultCheckout = asvin.checkRollout(mac, firmwareVersion, authToken, httpCode);
-      Serial.println("checkRollout");
-      char buff[resultCheckout.length() + 1];
-      resultCheckout.toCharArray(buff, resultCheckout.length() + 1);
-      Serial.println(buff);
+        //  CheckRollout
+        String resultCheckout = asvin.checkRollout(mac, firmware_version, authToken, httpCode);
+        Serial.println("--Check Next Rollout");
+        char buff[resultCheckout.length() + 1];
+        resultCheckout.toCharArray(buff, resultCheckout.length() + 1);
+        //Serial.println(buff);
 
-      if (httpCode == 200){
-        Serial.println("http 200: Next Rollout: OK");
-        DynamicJsonDocument doc(1000);
-        DeserializationError error = deserializeJson(doc, resultCheckout);
+        if (httpCode == 200) {
+          Serial.println("Next Rollout: OK");
+          DynamicJsonDocument doc(1000);
+          DeserializationError error = deserializeJson(doc, resultCheckout);
 
-        if (error)
-        {
-          Serial.print(F("deserializeJson() failed: "));
-          Serial.println(error.c_str());
-          return;
-        }
+          if (error)
+          {
+            showDeserializeError(error);
+            return;
+          }
           String firmwareID = doc["firmware_id"];
           String rolloutID = doc["rollout_id"];
-          // -Get CID from BlockChain server
+          if (rolloutID == "null") {
+            Serial.println("No Rollout available");
+            delay(1000 * 3);
+            return;
+          }
+
+          // Get CID from BlockChain server
+          Serial.println("--Get Firmware Info from Blockchain");
           String CidResponse = asvin.getBlockchainCID(firmwareID, authToken, httpCode);
           char cidbuff[CidResponse.length() + 1];
           CidResponse.toCharArray(cidbuff, CidResponse.length() + 1);
-          Serial.println(cidbuff);
+          //Serial.println(cidbuff);
 
           if (httpCode == 200) {
-            Serial.println("http 200: CID Resonse : OK");
+            Serial.println("Get Firmware Info : OK");
             DynamicJsonDocument doc(500);
             DeserializationError error = deserializeJson(doc, CidResponse);
             if (error)
-              {
-                Serial.print(F("deserializeJson() failed: "));
-                Serial.println(error.c_str());
-                return;
-              }
+            {
+              showDeserializeError(error);
+              return;
+            }
             String cid = doc["cid"];
+            if (cid.length() == 0) {
+              Serial.println("No CID available");
+              return;
+            }
+
             // -Download Firmware from IPFS server
+            Serial.println("--Download Firmware from IPFS and Install");
             t_httpUpdate_return ret = asvin.downloadFirmware(authToken, cid);
             switch (ret)
             {
@@ -169,25 +197,44 @@ void loop()
               Serial.println("HTTP_UPDATE_NO_UPDATES");
               break;
             case HTTP_UPDATE_OK:
-              Serial.println("HTTP_UPDATE_OK");
+              Serial.println("Update successfull");
+
+              // check if rollout successfull 
+              //Serial.println("--Update Rollout");
+              String resultCheckout = "dsf";// asvin.checkRolloutSuccess(mac, firmware_version, authToken, rolloutID, httpCode);
+              char buff[resultCheckout.length() + 1];
+              resultCheckout.toCharArray(buff, resultCheckout.length() + 1);
+              //Serial.println(buff);
+              if (httpCode == 200) {
+                //Serial.println("Update Rollout : OK");
+                Serial.println("--Restart Device and Apply Update : OK");
+                ESP.restart();
+              }
+              else {
+                Serial.println("Rollout Update Error!!");
+              }
               break;
             }
-            if (httpCode == 200){
-              Serial.println("Firmware updated");
-            }
-            // if (httpCode == 200)
-            // {
-            //   // check if rollout successfull
-            //   Serial.println("http 200");
-            //   String resultCheckout = asvin.CheckRolloutSuccess(mac, firmwareVersion, authToken, rolloutID, httpCode);
-            //   char buff[resultCheckout.length() + 1];
-            //   resultCheckout.toCharArray(buff, resultCheckout.length() + 1);
-            //   Serial.println(buff);
-            // }
+          }
+          else {
+            DEBUG_MY_UPDATE("IPFS Error!!");
           }
 
-        // -Check if Rollout was sucessful
+        }
+        else {
+          DEBUG_MY_UPDATE("Next Rollout Error!!");
+        }
+      }
+      else {
+        DEBUG_MY_UPDATE("Device Registration Error!!");
       }
     }
+    else {
+      DEBUG_MY_UPDATE("OAuth Error!!");
+    }
   }
+  else {
+    DEBUG_MY_UPDATE("Problem with WiFi!!");
+  }
+  delay(1000 * 3);
 }

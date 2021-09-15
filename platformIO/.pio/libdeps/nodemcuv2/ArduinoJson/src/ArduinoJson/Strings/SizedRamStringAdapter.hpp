@@ -1,12 +1,8 @@
 // ArduinoJson - arduinojson.org
-// Copyright Benoit Blanchon 2014-2021
+// Copyright Benoit Blanchon 2014-2019
 // MIT License
 
 #pragma once
-
-#include <ArduinoJson/Namespace.hpp>
-#include <ArduinoJson/Strings/IsString.hpp>
-#include <ArduinoJson/Strings/StoragePolicy.hpp>
 
 #include <string.h>  // strcmp
 
@@ -16,8 +12,8 @@ class SizedRamStringAdapter {
  public:
   SizedRamStringAdapter(const char* str, size_t n) : _str(str), _size(n) {}
 
-  int compare(const char* other) const {
-    return safe_strncmp(_str, other, _size);
+  int8_t compare(const char* other) const {
+    return safe_strncmp(_str, other, _size) == 0;
   }
 
   bool equals(const char* expected) const {
@@ -28,19 +24,20 @@ class SizedRamStringAdapter {
     return !_str;
   }
 
-  void copyTo(char* p, size_t n) const {
-    memcpy(p, _str, n);
+  char* save(MemoryPool* pool) const {
+    if (!_str) return NULL;
+    char* dup = pool->allocFrozenString(_size);
+    if (dup) memcpy(dup, _str, _size);
+    return dup;
   }
 
   size_t size() const {
     return _size;
   }
 
-  const char* begin() const {
-    return _str;
+  bool isStatic() const {
+    return false;
   }
-
-  typedef storage_policies::store_by_copy storage_policy;
 
  private:
   const char* _str;

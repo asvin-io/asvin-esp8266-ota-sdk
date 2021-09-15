@@ -1,17 +1,12 @@
 // ArduinoJson - arduinojson.org
-// Copyright Benoit Blanchon 2014-2021
+// Copyright Benoit Blanchon 2014-2019
 // MIT License
 
 #pragma once
 
-#include <ArduinoJson/Polyfills/type_traits.hpp>
+#include "../Polyfills/type_traits.hpp"
 
 namespace ARDUINOJSON_NAMESPACE {
-
-template <typename TResult>
-struct Visitor {
-  typedef TResult result_type;
-};
 
 struct Visitable {
   // template<Visitor>

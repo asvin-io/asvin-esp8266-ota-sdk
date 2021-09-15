@@ -1,18 +1,18 @@
 // ArduinoJson - arduinojson.org
-// Copyright Benoit Blanchon 2014-2021
+// Copyright Benoit Blanchon 2014-2019
 // MIT License
 
 #pragma once
 
-#include <ArduinoJson/Polyfills/integer.hpp>
-#include <ArduinoJson/Polyfills/limits.hpp>
-#include <ArduinoJson/Polyfills/type_traits.hpp>
-#include <ArduinoJson/Strings/StoragePolicy.hpp>
-#include <ArduinoJson/Variant/VariantContent.hpp>
+#include "../Polyfills/gsl/not_null.hpp"
+#include "../Polyfills/type_traits.hpp"
+#include "../Variant/VariantContent.hpp"
+
+#include <stdint.h>  // int8_t, int16_t
 
 namespace ARDUINOJSON_NAMESPACE {
 
-typedef int_t<ARDUINOJSON_SLOT_OFFSET_SIZE * 8>::type VariantSlotDiff;
+typedef conditional<sizeof(void*) <= 2, int8_t, int16_t>::type VariantSlotDiff;
 
 class VariantSlot {
   // CAUTION: same layout as VariantData
@@ -49,8 +49,7 @@ class VariantSlot {
   VariantSlot* next(size_t distance) {
     VariantSlot* slot = this;
     while (distance--) {
-      if (!slot->_next)
-        return 0;
+      if (!slot->_next) return 0;
       slot += slot->_next;
     }
     return slot;
@@ -61,32 +60,22 @@ class VariantSlot {
   }
 
   void setNext(VariantSlot* slot) {
-    ARDUINOJSON_ASSERT(!slot || slot - this >=
-                                    numeric_limits<VariantSlotDiff>::lowest());
-    ARDUINOJSON_ASSERT(!slot || slot - this <=
-                                    numeric_limits<VariantSlotDiff>::highest());
     _next = VariantSlotDiff(slot ? slot - this : 0);
   }
 
   void setNextNotNull(VariantSlot* slot) {
     ARDUINOJSON_ASSERT(slot != 0);
-    ARDUINOJSON_ASSERT(slot - this >=
-                       numeric_limits<VariantSlotDiff>::lowest());
-    ARDUINOJSON_ASSERT(slot - this <=
-                       numeric_limits<VariantSlotDiff>::highest());
     _next = VariantSlotDiff(slot - this);
   }
 
-  void setKey(const char* k, storage_policies::store_by_copy) {
-    ARDUINOJSON_ASSERT(k != NULL);
+  void setOwnedKey(not_null<const char*> k) {
     _flags |= KEY_IS_OWNED;
-    _key = k;
+    _key = k.get();
   }
 
-  void setKey(const char* k, storage_policies::store_by_address) {
-    ARDUINOJSON_ASSERT(k != NULL);
+  void setLinkedKey(not_null<const char*> k) {
     _flags &= VALUE_MASK;
-    _key = k;
+    _key = k.get();
   }
 
   const char* key() const {
@@ -101,15 +90,6 @@ class VariantSlot {
     _next = 0;
     _flags = 0;
     _key = 0;
-  }
-
-  void movePointers(ptrdiff_t stringDistance, ptrdiff_t variantDistance) {
-    if (_flags & KEY_IS_OWNED)
-      _key += stringDistance;
-    if (_flags & VALUE_IS_OWNED)
-      _content.asString += stringDistance;
-    if (_flags & COLLECTION_MASK)
-      _content.asCollection.movePointers(stringDistance, variantDistance);
   }
 };
 

@@ -15,8 +15,8 @@
 
 
 #ifndef DEBUG_ASVIN_UPDATE
-// #define DEBUG_ASVIN_UPDATE
-#define DEBUG_ASVIN_UPDATE(...) Serial.printf( __VA_ARGS__ )
+#define DEBUG_ASVIN_UPDATE
+//#define DEBUG_ASVIN_UPDATE(...) Serial.printf( __VA_ARGS__ )
 #endif
 
 #ifndef DEBUG_ASVIN_UPDATE
@@ -31,14 +31,13 @@ class Asvin
     public:
         Asvin(void);
         ~Asvin(void);
-        String getFingerprints(int& httpCode);
-        String registerDevice(const String mac, String currentFwVersion, String token, int& httpCode);
+        bool getFingerprints(int& httpCode);
+        String registerDevice(const String name, const String mac, String currentFwVersion, String token, int& httpCode);
         String checkRollout(const String mac, const String currentFwVersion, String token, int& httpCode);
         String authLogin(String deviceKey, String deviceSignature, long unsigned int timestamp, int& httpCode);
         String getBlockchainCID(const String firmwareID, String token, int& httpCode);
         String checkRolloutSuccess(const String mac, const String currentFwVersion, String token, const String rolloutID, int& httpCode);
         t_httpUpdate_return downloadFirmware(String token, const String cid);
-        
 
     private:
         const String registerURL = "https://app.vc.asvin.io/api/device/register";
