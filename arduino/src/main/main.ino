@@ -2,7 +2,7 @@
  * Esp8266HttpOta
  *
  * The sketch was developed for a prototype consist of Nodemcu ESP8266 board
- * and 1602A LCD board. The board connects to asvin platform and perform OTA
+ * . The board connects to asvin platform and perform OTA
  * firmware updates.
  *
  * Written by Rohit Bohara, Apache-2.0 License

@@ -38,12 +38,12 @@ public:
 
 
 private:
-  const String registerURL = "https://dev.vc.asvin.de/api/device/register";
-  const String checkRollout = "https://dev.vc.asvin.de/api/device/next/rollout";
-  const String checkRolloutSuccess = "https://dev.vc.asvin.de/api/device/success/rollout";
-  const String authserver_login = "https://dev.auth.asvin.de/auth/login";
-  const String bc_GetFirmware = "https://dev.besu.asvin.de/firmware/get";
-  const String ipfs_Download = "https://dev.ipfs.asvin.de/firmware/download";
+  const String registerURL = "https://app.vc.asvin.io/api/device/register";
+  const String checkRollout = "https://app.vc.asvin.io/api/device/next/rollout";
+  const String checkRolloutSuccess = "https://app.vc.asvin.io/api/device/success/rollout";
+  const String authserver_login = "https://app.auth.asvin.io/auth/login";
+  const String bc_GetFirmware = "https://app.besu.asvin.io/firmware/get";
+  const String ipfs_Download = "https://app.ipfs.asvin.io/firmware/download";
 
 };
 #endif

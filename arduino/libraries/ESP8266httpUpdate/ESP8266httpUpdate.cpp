@@ -54,16 +54,6 @@ HTTPUpdateResult ESP8266HTTPUpdate::update(const String& url, const String& curr
 #pragma GCC diagnostic pop
 }
 
-// Asvin change 
-
-HTTPUpdateResult ESP8266HTTPUpdate::update(WiFiClient& client, const String& url,  String payload, String token, const String& currentVersion)
-{
-    HTTPClient http;
-	http.begin(client, url);
-    // HTTPClient& http, const String& currentVersion, String payload, const char* token, bool spiffs = false
-    return handleUpdate(http, currentVersion, payload, token, false);
-}
-
 
 HTTPUpdateResult ESP8266HTTPUpdate::update(const String& url, const String& currentVersion)
 {
@@ -136,6 +126,16 @@ HTTPUpdateResult ESP8266HTTPUpdate::updateSpiffs(const String& url, const String
     return handleUpdate(http, currentVersion, true);
 }
 #endif
+// Asvin change 
+
+HTTPUpdateResult ESP8266HTTPUpdate::update(WiFiClient& client, const String& url,  String payload, String token, const String& currentVersion)
+{
+    HTTPClient http;
+	  http.begin(client, url);
+    // HTTPClient& http, const String& currentVersion, String payload, const char* token, bool spiffs = false
+    return handleUpdate(http, currentVersion, payload, token, false);
+}
+
 
 HTTPUpdateResult ESP8266HTTPUpdate::updateFS(WiFiClient& client, const String& url, const String& currentVersion)
 {
@@ -243,8 +243,8 @@ HTTPUpdateResult ESP8266HTTPUpdate::handleUpdate(HTTPClient& http, const String&
 
     // track these headers
     http.collectHeaders(headerkeys, headerkeyssize);
-	Serial.print("Payload -->  ");
-	Serial.println(payload);
+	//Serial.print("Payload -->  ");
+	//Serial.println(payload);
 
     int code = http.POST(payload);
 	
@@ -276,11 +276,12 @@ HTTPUpdateResult ESP8266HTTPUpdate::handleUpdate(HTTPClient& http, const String&
     if(currentVersion && currentVersion[0] != 0x00) {
         DEBUG_HTTP_UPDATE("[httpUpdate]  - current version: %s\n", currentVersion.c_str() );
     }
-    Serial.println("Starting Update");
-    Serial.println(code);
+    Serial.println("Download Firmware: OK");
+    Serial.println("--Install Firmware and Update");
+    //Serial.println(code);
     switch(code) {
     case HTTP_CODE_OK:  ///< OK (Start Update)
-        Serial.println("http code ok");
+        //Serial.println("http code ok");
         if(len > 0) {
             bool startUpdate = true;
             if(spiffs) {

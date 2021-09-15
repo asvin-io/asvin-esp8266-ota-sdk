@@ -176,7 +176,7 @@ protected:
         }
     }
     int _lastError;
-    bool _rebootOnUpdate = true;
+    bool _rebootOnUpdate = false;
     bool _closeConnectionsOnUpdate = true;
 private:
     int _httpClientTimeout;
