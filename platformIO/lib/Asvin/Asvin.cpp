@@ -30,36 +30,28 @@ bool Asvin::getFingerprints(int& httpCode) {
   client->setInsecure();
   HTTPClient http;
   http.begin(*client, asvinToolsURL);
-  http.addHeader(F("Content-Type"), "application/json");
-  String payload;
-  char buff[payload.length() + 1];
-  payload.toCharArray(buff, payload.length() + 1);
-  DEBUG_ASVIN_UPDATE("[asvin tools server] Get Fingerprints : %s\n", buff);
+  DEBUG_ASVIN_UPDATE("[asvin tools server] Get Fingerprints\n");
   httpCode = http.GET();   //Send the request
   delay(1000);
   String res = http.getString();  //Get the response payload
-  Serial.print("code");
-  Serial.println(httpCode);
-  Serial.println(res);
+  DEBUG_ASVIN_UPDATE(res);
   delay(1000);
   http.end();  //Close connection to asvin server
 
   if (httpCode == 200) {
     DynamicJsonDocument doc(500);
     DeserializationError error = deserializeJson(doc, res);
-
+    if (error)
+    {
+      DEBUG_ASVIN_UPDATE(F("deserializeJson() failed: "));
+      DEBUG_ASVIN_UPDATE(error.c_str());
+      return false;
+    }
     fingerprintBC = doc["bc"].as<String>();
     fingerprintIPFS = doc["ipfs"].as<String>();
     fingerprintVC = doc["vc"].as<String>();
     fingerprintAuth = doc["oauth"].as<String>();
-
-    if (error)
-    {
-      Serial.print(F("deserializeJson() failed: "));
-      Serial.println(error.c_str());
-      return false;
-    }
-    Serial.println("Added fingerpints");
+    DEBUG_ASVIN_UPDATE("Added fingerpints");
   }
   return true;
 }
@@ -78,8 +70,8 @@ bool Asvin::getFingerprints(int& httpCode) {
 
 String Asvin::authLogin(String deviceKey, String deviceSignature, long unsigned int timestamp, int& httpCode) {
   std::unique_ptr<BearSSL::WiFiClientSecure>client(new BearSSL::WiFiClientSecure);
-  Serial.print("Fingerprint auth: ");
-  Serial.println(fingerprintAuth);
+  DEBUG_ASVIN_UPDATE("Fingerprint auth: ");
+  DEBUG_ASVIN_UPDATE(fingerprintAuth);
   client->setFingerprint(fingerprintAuth.c_str());
   HTTPClient http;
   http.begin(*client, authserverLoginURL);
@@ -114,8 +106,8 @@ String Asvin::authLogin(String deviceKey, String deviceSignature, long unsigned 
 
 String Asvin::registerDevice(const String name, const String mac, String currentFwVersion, String token, int& httpCode) {
   std::unique_ptr<BearSSL::WiFiClientSecure>client(new BearSSL::WiFiClientSecure);
-  Serial.print("Fingerprint VC: ");
-  Serial.println(fingerprintVC);
+  DEBUG_ASVIN_UPDATE("Fingerprint VC: ");
+  DEBUG_ASVIN_UPDATE(fingerprintVC);
   client->setFingerprint(fingerprintVC.c_str());
   HTTPClient http;
   http.begin(*client, registerURL);
@@ -131,7 +123,7 @@ String Asvin::registerDevice(const String name, const String mac, String current
   payload.toCharArray(buff, payload.length() + 1);
   DEBUG_ASVIN_UPDATE("[asvin Version Controller] Register Device  : %s\n", buff);
   httpCode = http.POST(payload);   //Send the request
-  Serial.println("Posted ...");
+  DEBUG_ASVIN_UPDATE("Posted ...");
   delay(1000);
   String res = http.getString();  //Get the response payload
   http.end();  //Close connection to asvin server
@@ -150,8 +142,8 @@ String Asvin::registerDevice(const String name, const String mac, String current
   */
 String Asvin::checkRollout(const String mac, const String currentFwVersion, String token, int& httpCode) {
   std::unique_ptr<BearSSL::WiFiClientSecure>client(new BearSSL::WiFiClientSecure);
-  Serial.print("Fingerprint VC: ");
-  Serial.println(fingerprintVC);
+  DEBUG_ASVIN_UPDATE("Fingerprint VC: ");
+  DEBUG_ASVIN_UPDATE(fingerprintVC);
   client->setFingerprint(fingerprintVC.c_str());
   HTTPClient http;
   http.begin(*client, checkRolloutURL);
@@ -184,8 +176,8 @@ String Asvin::checkRollout(const String mac, const String currentFwVersion, Stri
   */
 String Asvin::getBlockchainCID(const String firmwareID, String token, int& httpCode) {
   std::unique_ptr<BearSSL::WiFiClientSecure>client(new BearSSL::WiFiClientSecure);
-  Serial.print("Fingerprint BC: ");
-  Serial.println(fingerprintBC);
+  DEBUG_ASVIN_UPDATE("Fingerprint BC: ");
+  DEBUG_ASVIN_UPDATE(fingerprintBC);
   client->setFingerprint(fingerprintBC.c_str());
   HTTPClient http;
   http.begin(*client, bcGetFirmwareURL);
@@ -220,8 +212,8 @@ String Asvin::getBlockchainCID(const String firmwareID, String token, int& httpC
 
 String Asvin::checkRolloutSuccess(const String mac, const String currentFwVersion, String token, const String rolloutID, int& httpCode) {
   std::unique_ptr<BearSSL::WiFiClientSecure>client(new BearSSL::WiFiClientSecure);
-  Serial.print("Fingerprint VC: ");
-  Serial.println(fingerprintVC);
+  DEBUG_ASVIN_UPDATE("Fingerprint VC: ");
+  DEBUG_ASVIN_UPDATE(fingerprintVC);
   client->setFingerprint(fingerprintVC.c_str());
   HTTPClient http;
   http.begin(*client, checkRolloutSuccessURL);
@@ -254,8 +246,8 @@ String Asvin::checkRolloutSuccess(const String mac, const String currentFwVersio
   */
 t_httpUpdate_return Asvin::downloadFirmware(String token, const String cid) {
   std::unique_ptr<BearSSL::WiFiClientSecure>client(new BearSSL::WiFiClientSecure);
-  Serial.print("Fingerprint IPFS: ");
-  Serial.println(fingerprintIPFS);
+  DEBUG_ASVIN_UPDATE("Fingerprint IPFS: ");
+  DEBUG_ASVIN_UPDATE(fingerprintIPFS);
   client->setFingerprint(fingerprintIPFS.c_str());
   StaticJsonDocument<80> doc;
   doc["cid"] = cid;

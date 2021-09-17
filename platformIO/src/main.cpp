@@ -201,7 +201,7 @@ void loop() {
 
               // check if rollout successfull 
               //Serial.println("--Update Rollout");
-              String resultCheckout = "dsf";// asvin.checkRolloutSuccess(mac, firmware_version, authToken, rolloutID, httpCode);
+              String resultCheckout = asvin.checkRolloutSuccess(mac, firmware_version, authToken, rolloutID, httpCode);
               char buff[resultCheckout.length() + 1];
               resultCheckout.toCharArray(buff, resultCheckout.length() + 1);
               //Serial.println(buff);
