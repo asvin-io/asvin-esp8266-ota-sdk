@@ -6,7 +6,7 @@
 
 Install Arduino IDE to edit, compile and upload the code to ESP8266 device. The code has been tested with Arduino 1.8.5.
 
-### ESP8266 Code
+### ESP8266 Core
 
 Install ESP8266 core. Tested with 2.7.4
 
