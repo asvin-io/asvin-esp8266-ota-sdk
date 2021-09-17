@@ -14,8 +14,9 @@
 #include <Crypto.h>
 #include <ArduinoJson.h>
 #include "Asvin.h"
+#include "credentials.h"
 
-#define DEBUG_MY_UPDATE
+ //#define DEBUG_MY_UPDATE
 
 #ifndef DEBUG_MY_UPDATE
 #define DEBUG_MY_UPDATE(...) Serial.printf( __VA_ARGS__ )
@@ -26,15 +27,13 @@ const long utcOffsetInSeconds = 0;
 WiFiUDP ntpUDP;
 NTPClient timeClient(ntpUDP, "pool.ntp.org", utcOffsetInSeconds);
 
-
-// Get credentials from credentials.h
-String customer_key = "your-customer_key";
-String device_key = "your-device_key";
+// Get credentials from asvin platform
+String customer_key = CUSTOMER_KEY;
+String device_key = DEVICE_KEY;
 
 
 String firmware_version = "1.0.0";
 bool device_registered = false;
-
 
 /*
 This sketch uses wifi manager to manage WiFi credentials
@@ -89,12 +88,19 @@ void loop() {
 
     String device_signature = SHA256::hmac(payloadBuf, derivedKey, sizeof derivedKey, SHA256::NATURAL_LENGTH);
     device_signature.toLowerCase();
-    // Serial.println(device_signature);
+    Serial.print("dd: ");
+    Serial.println(device_signature);
+    Serial.println(timestr);
 
     delay(2000);
-    HTTPClient http;
-    Asvin asvin;
+
     int httpCode;
+    Asvin asvin;
+
+    if (!asvin.getFingerprints(httpCode)) {
+      Serial.println("Fingerprint error");
+      return;
+    }
 
     // ......Get OAuth Token.................. 
     Serial.println("--Get OAuth Token ");
@@ -119,8 +125,8 @@ void loop() {
       }
       else {
         //Serial.println("--Register Device");
-        String device_name = "esp-conti-demo";
-        String result = asvin.RegisterDevice(device_name, mac, firmware_version, authToken, httpCode);
+        String device_name = "esp-8266-demo";
+        String result = asvin.registerDevice(device_name, mac, firmware_version, authToken, httpCode);
         char buff[result.length() + 1];
         result.toCharArray(buff, result.length() + 1);
         /*
@@ -133,7 +139,7 @@ void loop() {
         //Serial.println("Device Registered: OK ");
 
         //  CheckRollout
-        String resultCheckout = asvin.CheckRollout(mac, firmware_version, authToken, httpCode);
+        String resultCheckout = asvin.checkRollout(mac, firmware_version, authToken, httpCode);
         Serial.println("--Check Next Rollout");
         char buff[resultCheckout.length() + 1];
         resultCheckout.toCharArray(buff, resultCheckout.length() + 1);
@@ -159,7 +165,7 @@ void loop() {
 
           // Get CID from BlockChain server
           Serial.println("--Get Firmware Info from Blockchain");
-          String CidResponse = asvin.GetBlockchainCID(firmwareID, authToken, httpCode);
+          String CidResponse = asvin.getBlockchainCID(firmwareID, authToken, httpCode);
           char cidbuff[CidResponse.length() + 1];
           CidResponse.toCharArray(cidbuff, CidResponse.length() + 1);
           //Serial.println(cidbuff);
@@ -181,7 +187,7 @@ void loop() {
 
             // -Download Firmware from IPFS server
             Serial.println("--Download Firmware from IPFS and Install");
-            t_httpUpdate_return ret = asvin.DownloadFirmware(authToken, cid);
+            t_httpUpdate_return ret = asvin.downloadFirmware(authToken, cid);
             switch (ret)
             {
             case HTTP_UPDATE_FAILED:
@@ -195,7 +201,7 @@ void loop() {
 
               // check if rollout successfull 
               //Serial.println("--Update Rollout");
-              String resultCheckout = asvin.CheckRolloutSuccess(mac, firmware_version, authToken, rolloutID, httpCode);
+              String resultCheckout = asvin.checkRolloutSuccess(mac, firmware_version, authToken, rolloutID, httpCode);
               char buff[resultCheckout.length() + 1];
               resultCheckout.toCharArray(buff, resultCheckout.length() + 1);
               //Serial.println(buff);
